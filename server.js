@@ -1019,17 +1019,17 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(port, () => {
-    logger.info(`Rezoomex MCP Server started on port ${port}`, {
-        port: port,
+app.listen(PORT, () => {
+    logger.info(`Rezoomex MCP Server started on port ${PORT}`, {
+        port: PORT,
         nodeEnv: process.env.NODE_ENV || 'development',
         version: '1.0.0'
     });
-    console.log(`🚀 Rezoomex MCP Server running on http://localhost:${port}`);
-    console.log(`📚 MCP SSE Endpoint: http://localhost:${port}/sse`);
-    console.log(`🔧 MCP Messages: POST http://localhost:${port}/mcp`);
-    console.log(`🔐 Authentication: http://localhost:${port}`);
-    console.log(`📊 Health Check: http://localhost:${port}/health`);
+    console.log(`🚀 Rezoomex MCP Server running on http://localhost:${PORT}`);
+    console.log(`📚 MCP SSE Endpoint: http://localhost:${PORT}/sse`);
+    console.log(`🔧 MCP Messages: POST http://localhost:${PORT}/mcp`);
+    console.log(`🔐 Authentication: http://localhost:${PORT}`);
+    console.log(`📊 Health Check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown
