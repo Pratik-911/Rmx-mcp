@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rezoomex MCP Server - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #333;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .logo p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .login-section {
+            margin-bottom: 30px;
+        }
+        
+        .login-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .login-methods {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .login-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+        
+        .login-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .login-btn.secondary {
+            background: #2196F3;
+        }
+        
+        .login-btn.secondary:hover {
+            background: #1976D2;
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+        }
+        
+        .direct-login {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .direct-login h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .manual-token {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .session-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .session-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .session-info p {
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .tools-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #17a2b8;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        
+        .tools-link:hover {
+            background: #138496;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            color: #856404;
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🚀 Rezoomex MCP</h1>
+            <p>Model Context Protocol Server</p>
+        </div>
+        
+        <div class="login-section">
+            <h2>🔐 Authentication</h2>
+            
+            <div class="instructions">
+                <h4>📋 How to Login:</h4>
+                <ol>
+                    <li>Enter your Rezoomex credentials below for automatic authentication</li>
+                    <li>Or click "OAuth Login" and copy the access_token from URL</li>
+                    <li>Or manually paste your bearer token at the bottom</li>
+                </ol>
+            </div>
+            
+            <div class="direct-login">
+                <h3>🔐 Direct Login</h3>
+                <form id="credentialForm">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" 
+                               placeholder="Enter your Rezoomex email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" 
+                               placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="login-btn">🚀 Login with Credentials</button>
+                </form>
+            </div>
+            
+            <div class="login-methods">
+                <button class="login-btn secondary" id="autoDetectBtn">
+                    🌐 OAuth Login (Manual)
+                </button>
+            </div>
+            
+            <div class="manual-token">
+                <h3>Manual Token Entry</h3>
+                <form id="tokenForm">
+                    <div class="form-group">
+                        <label for="bearerToken">Bearer Token:</label>
+                        <input type="text" id="bearerToken" name="bearerToken" 
+                               placeholder="Paste bearer token or full URL with access_token here...">
+                    </div>
+                    <button type="submit" class="login-btn">🔑 Authenticate</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="session-info" id="sessionInfo">
+            <h3>✅ Authentication Successful</h3>
+            <p><strong>Session ID:</strong> <span id="sessionId"></span></p>
+            <p><strong>User:</strong> <span id="userName"></span></p>
+            <p><strong>Status:</strong> <span id="userStatus"></span></p>
+            <a href="/mcp/tools" class="tools-link">📚 View Available Tools</a>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+        let checkInterval = null;
+
+        // Check if already authenticated on page load
+        window.addEventListener('load', () => {
+            checkForUrlToken();
+            checkAuthStatus();
+        });
+
+        // Direct credential form
+        document.getElementById('credentialForm').addEventListener('submit', handleCredentialLogin);
+
+        // Auto-detect token button
+        document.getElementById('autoDetectBtn').addEventListener('click', startOAuthFlow);
+
+        // Manual token form
+        document.getElementById('tokenForm').addEventListener('submit', handleManualToken);
+
+        async function checkForUrlToken() {
+            // Check for access_token in URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const accessToken = urlParams.get('access_token');
+            
+            if (accessToken) {
+                showInfo('🔄 Found access token in URL, authenticating...');
+                
+                try {
+                    const response = await fetch('/auth/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ bearerToken: accessToken })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.sessionId) {
+                        showSuccess('🎉 Authentication successful!');
+                        displaySessionInfo(data);
+                        
+                        // Clean up URL parameters
+                        const url = new URL(window.location);
+                        url.searchParams.delete('access_token');
+                        window.history.replaceState({}, document.title, url.pathname);
+                    } else {
+                        showError(data.error || 'Authentication failed');
+                    }
+                } catch (error) {
+                    showError('Authentication error: ' + error.message);
+                }
+                return true; // Token was found and processed
+            }
+            return false; // No token found
+        }
+
+        async function handleCredentialLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!email || !password) {
+                showError('Please enter both email and password');
+                return;
+            }
+
+            showInfo('🔄 Authenticating with Rezoomex...');
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.sessionId) {
+                    showSuccess('🎉 Authentication successful!');
+                    displaySessionInfo(data);
+                    document.getElementById('credentialForm').reset();
+                } else {
+                    showError(data.error || 'Authentication failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            }
+        }
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
+                
+                if (data.authenticated && data.sessionId) {
+                    showSuccess('Already authenticated!');
+                    displaySessionInfo(data);
+                }
+            } catch (error) {
+                console.log('Not authenticated yet');
+            }
+        }
+
+        async function startOAuthFlow() {
+            try {
+                showInfo('🔄 Getting login URL...');
+                
+                // Get the OAuth login URL
+                const response = await fetch('/auth/login-url');
+                const data = await response.json();
+                
+                if (data.loginUrl) {
+                    showInfo('🌐 Opening Rezoomex login... Please complete login and return to this page.');
+                    
+                    // Open login in new window
+                    const loginWindow = window.open(data.loginUrl, 'rezoomex-login', 'width=600,height=700,scrollbars=yes,resizable=yes');
+                    
+                    // Start monitoring for successful authentication
+                    startAuthMonitoring(loginWindow);
+                } else {
+                    showError('Failed to get login URL');
+                }
+            } catch (error) {
+                showError('Failed to start OAuth flow: ' + error.message);
+            }
+        }
+        
+        function startAuthMonitoring(loginWindow) {
+            showInfo('🔄 Monitoring login window... After login, copy the URL with access_token and paste it here.');
+            
+            // Monitor for window close or URL change
+            checkInterval = setInterval(() => {
+                try {
+                    if (loginWindow.closed) {
+                        clearInterval(checkInterval);
+                        showInfo('💡 Login window closed. If you got an access_token in the URL, paste the full URL in the token field below.');
+                        return;
+                    }
+                    
+                    // Try to check the login window URL for access_token
+                    try {
+                        const loginUrl = loginWindow.location.href;
+                        if (loginUrl && loginUrl.includes('access_token=')) {
+                            const urlParams = new URLSearchParams(new URL(loginUrl).search);
+                            const accessToken = urlParams.get('access_token');
+                            
+                            if (accessToken) {
+                                clearInterval(checkInterval);
+                                loginWindow.close();
+                                processAccessToken(accessToken);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        // Cross-origin error, can't access login window URL
+                        // This is expected for external domains
+                    }
+                } catch (e) {
+                    // Continue monitoring
+                }
+            }, 1000);
+            
+            // Stop monitoring after 10 minutes
+            setTimeout(() => {
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    if (!loginWindow.closed) {
+                        loginWindow.close();
+                    }
+                    showError('⏰ Login timeout. Please try again.');
+                }
+            }, 600000);
+        }
+        
+        async function processAccessToken(accessToken) {
+            try {
+                showInfo('🔄 Processing access token...');
+                
+                const response = await fetch('/auth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ bearerToken: accessToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.sessionId) {
+                    showSuccess('🎉 Authentication successful!');
+                    displaySessionInfo(data);
+                } else {
+                    showError(data.error || 'Authentication failed');
+                }
+            } catch (error) {
+                showError('Authentication error: ' + error.message);
+            }
+        }
+        
+        async function pickupToken(tokenId) {
+            try {
+                showInfo('🔄 Processing authentication...');
+                
+                const response = await fetch('/auth/pickup-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tempTokenId: tokenId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showSuccess('🎉 Authentication successful!');
+                    displaySessionInfo(data);
+                    
+                    // Clean up URL parameters
+                    const url = new URL(window.location);
+                    url.searchParams.delete('token_id');
+                    url.searchParams.delete('success');
+                    url.searchParams.delete('error');
+                    window.history.replaceState({}, document.title, url.pathname);
+                } else {
+                    showError(data.error || 'Token pickup failed');
+                }
+            } catch (error) {
+                showError('Token pickup error: ' + error.message);
+            }
+        }
+
+        async function handleManualToken(event) {
+            event.preventDefault();
+            
+            let input = document.getElementById('bearerToken').value.trim();
+            if (!input) {
+                showError('Please enter a bearer token or URL');
+                return;
+            }
+
+            // Check if input is a URL with access_token parameter
+            let bearerToken = input;
+            if (input.includes('access_token=')) {
+                try {
+                    const url = new URL(input);
+                    const accessToken = url.searchParams.get('access_token');
+                    if (accessToken) {
+                        bearerToken = accessToken;
+                        showInfo('🔄 Extracted access token from URL, authenticating...');
+                    }
+                } catch (e) {
+                    // If URL parsing fails, treat as direct token
+                }
+            } else {
+                showInfo('🔄 Authenticating...');
+            }
+
+            try {
+                const response = await fetch('/auth/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ bearerToken })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.sessionId) {
+                    showSuccess('🎉 Authentication successful!');
+                    displaySessionInfo(data);
+                    document.getElementById('bearerToken').value = '';
+                } else {
+                    showError(data.error || 'Authentication failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            }
+        }
+
+        function displaySessionInfo(data) {
+            sessionId = data.sessionId;
+            document.getElementById('sessionId').textContent = data.sessionId;
+            document.getElementById('userName').textContent = data.user?.fullName || 'Unknown';
+            document.getElementById('userStatus').textContent = data.user?.ndaStatus || 'Unknown';
+            document.getElementById('sessionInfo').style.display = 'block';
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function showSuccess(message) {
+            showStatus(message, 'success');
+        }
+
+        function showError(message) {
+            showStatus(message, 'error');
+        }
+
+        function showInfo(message) {
+            showStatus(message, 'info');
+        }
+
+        // Clear status when user starts typing
+        document.getElementById('bearerToken').addEventListener('input', () => {
+            document.getElementById('status').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
