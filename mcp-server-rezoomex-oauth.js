@@ -940,11 +940,12 @@ app.get("/", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    logger.info('Rezoomex MCP Server started', {
-        port: PORT,
-        url: BASE_URI,
-        rezoomexLoginUrl: REZOOMEX_LOGIN_URL,
-        rezoomexBaseUrl: REZOOMEX_BASE_URL,
-        environment: process.env.NODE_ENV || 'development'
-    });
+logger.info('Rezoomex OAuth2 MCP Server started', {
+port: PORT,
+baseUri: BASE_URI,
+rezoomexLoginUrl: REZOOMEX_LOGIN_URL,
+rezoomexBaseUrl: REZOOMEX_BASE_URL,
+environment: process.env.NODE_ENV || 'development',
+version: '2.0.0'
+});
 });
