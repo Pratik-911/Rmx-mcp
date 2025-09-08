@@ -41,6 +41,83 @@ const BASE_URI = process.env.BASE_URI || (process.env.NODE_ENV === 'production' 
 const REZOOMEX_LOGIN_URL = process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/account/login';
 const REZOOMEX_BASE_URL = process.env.REZOOMEX_BASE_URL || 'https://awsapi-gateway.rezoomex.com';
 
+// Auth0 Configuration
+const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
+const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID;
+const AUTH0_CLIENT_SECRET = process.env.AUTH0_CLIENT_SECRET;
+
+// Auth0 OAuth2 Provider
+class Auth0Provider {
+    constructor(domain, clientId, clientSecret, logger) {
+        this.domain = domain;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.logger = logger;
+    }
+
+    getAuthorizationUrl(redirectUri, state, scope = 'openid profile email') {
+        const authUrl = new URL(`https://${this.domain}/authorize`);
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('client_id', this.clientId);
+        authUrl.searchParams.set('redirect_uri', redirectUri);
+        authUrl.searchParams.set('scope', scope);
+        if (state) authUrl.searchParams.set('state', state);
+        return authUrl.toString();
+    }
+
+    async exchangeCodeForToken(code, redirectUri) {
+        try {
+            const tokenResponse = await axios.post(`https://${this.domain}/oauth/token`, {
+                grant_type: 'authorization_code',
+                client_id: this.clientId,
+                client_secret: this.clientSecret,
+                code: code,
+                redirect_uri: redirectUri
+            }, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            return tokenResponse.data;
+        } catch (error) {
+            this.logger.error('Auth0 token exchange failed', { error: error.message });
+            throw new Error('Token exchange failed');
+        }
+    }
+
+    async getUserInfo(accessToken) {
+        try {
+            const userResponse = await axios.get(`https://${this.domain}/userinfo`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            return userResponse.data;
+        } catch (error) {
+            this.logger.error('Auth0 user info fetch failed', { error: error.message });
+            throw new Error('Failed to fetch user info');
+        }
+    }
+
+    async verifyAccessToken(token) {
+        try {
+            const userInfo = await this.getUserInfo(token);
+            return {
+                token,
+                clientId: this.clientId,
+                scopes: ['read', 'write'],
+                extra: {
+                    userId: userInfo.sub,
+                    email: userInfo.email,
+                    name: userInfo.name
+                },
+                expiresAt: Date.now() + 3600000 // 1 hour
+            };
+        } catch (error) {
+            this.logger.error('Auth0 token verification failed', { error: error.message });
+            throw new Error('Invalid access token');
+        }
+    }
+}
+
 // In-memory session storage
 const sessionStore = new Map();
 const mcpTransports = new Map();
@@ -63,9 +140,14 @@ app.options('*', cors(corsOptions));
 // Add middleware for parsing form data
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize auth manager and tools
+// Initialize providers and managers
 const authManager = new AuthManager(logger);
 const mcpTools = new MCPTools();
+
+// Initialize Auth0 provider if configured
+const auth0Provider = (AUTH0_DOMAIN && AUTH0_CLIENT_ID && AUTH0_CLIENT_SECRET) 
+    ? new Auth0Provider(AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, logger)
+    : null;
 
 // Rezoomex authentication provider
 class RezoomexAuthProvider {
@@ -267,6 +349,59 @@ function createMcpServer(sessionContext) {
 
     return { server };
 }
+
+// OAuth2 authorization endpoint - handles both Auth0 and Rezoomex flows
+app.get("/authorize", async (req, res) => {
+    const { response_type, client_id, redirect_uri, state, scope, auth_provider } = req.query;
+    
+    logger.info('Authorization request received', { 
+        response_type, 
+        client_id, 
+        redirect_uri: redirect_uri ? redirect_uri.substring(0, 50) + '...' : 'none',
+        state,
+        scope,
+        authProvider: auth_provider
+    });
+
+    // Use Auth0 if configured and requested
+    if (auth0Provider && (auth_provider === 'auth0' || client_id === AUTH0_CLIENT_ID)) {
+        const authUrl = auth0Provider.getAuthorizationUrl(
+            redirect_uri || `${BASE_URI}/callback`,
+            state,
+            scope || 'openid profile email'
+        );
+        
+        logger.info('Redirecting to Auth0', { authUrl });
+        return res.redirect(authUrl);
+    }
+
+    // Fall back to Rezoomex direct authentication form
+    res.send(`
+        <html>
+          <head><title>Rezoomex Authentication</title></head>
+          <body>
+            <h1>Login to Rezoomex</h1>
+            <p>Please enter your Rezoomex credentials:</p>
+            <form method="post" action="/authenticate">
+              <input type="hidden" name="state" value="${state || ''}" />
+              <input type="hidden" name="redirect_uri" value="${redirect_uri || `${BASE_URI}/callback`}" />
+              
+              <div>
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required />
+              </div>
+              
+              <div>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required />
+              </div>
+              
+              <button type="submit">Login</button>
+            </form>
+          </body>
+        </html>
+    `);
+});
 
 // OAuth2 client registration endpoint (for IDE compatibility)
 app.post("/register", async (req, res) => {
@@ -523,7 +658,77 @@ app.post("/authenticate", async (req, res) => {
     }
 });
 
-// OAuth callback endpoint - handles session-based callbacks
+// OAuth2 token exchange endpoint
+app.post("/token", async (req, res) => {
+    try {
+        const { grant_type, code, redirect_uri, client_id, client_secret } = req.body;
+        
+        logger.info('Token exchange request', { grant_type, client_id, hasCode: !!code });
+
+        if (grant_type !== 'authorization_code') {
+            return res.status(400).json({
+                error: 'unsupported_grant_type',
+                error_description: 'Only authorization_code grant type is supported'
+            });
+        }
+
+        if (!code) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'Missing authorization code'
+            });
+        }
+
+        // Use Auth0 token exchange if Auth0 client
+        if (auth0Provider && client_id === AUTH0_CLIENT_ID) {
+            try {
+                const tokenData = await auth0Provider.exchangeCodeForToken(code, redirect_uri);
+                
+                logger.info('Auth0 token exchange successful');
+                return res.json({
+                    access_token: tokenData.access_token,
+                    token_type: 'Bearer',
+                    expires_in: tokenData.expires_in || 3600,
+                    scope: tokenData.scope
+                });
+            } catch (error) {
+                logger.error('Auth0 token exchange failed', { error: error.message });
+                return res.status(400).json({
+                    error: 'invalid_grant',
+                    error_description: 'Authorization code is invalid or expired'
+                });
+            }
+        }
+
+        // Handle Rezoomex authorization codes
+        const authCode = sessionStore.get(`auth_code:${code}`);
+        if (!authCode) {
+            return res.status(400).json({
+                error: 'invalid_grant',
+                error_description: 'Authorization code is invalid or expired'
+            });
+        }
+
+        // Clean up used code
+        sessionStore.delete(`auth_code:${code}`);
+
+        logger.info('Token exchange successful for Rezoomex auth');
+        res.json({
+            access_token: authCode.access_token,
+            token_type: 'Bearer',
+            expires_in: 3600
+        });
+
+    } catch (error) {
+        logger.error('Token exchange error', { error: error.message });
+        res.status(500).json({
+            error: 'server_error',
+            error_description: 'Internal server error during token exchange'
+        });
+    }
+});
+
+// OAuth callback endpoint - handles both Auth0 and Rezoomex callbacks
 app.get("/callback", async (req, res) => {
     try {
         const { state, code, token, session } = req.query;
@@ -673,31 +878,43 @@ app.post("/token", async (req, res) => {
     }
 });
 
-// SSE auth middleware
+// SSE authentication middleware - supports both Auth0 and Rezoomex tokens
 const sseAuthMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        logger.info('Unauthenticated MCP request, redirecting to Rezoomex authorization', { 
-            url: req.url,
-            userAgent: req.headers['user-agent'],
-            accept: req.headers.accept
-        });
-        
         // Always redirect to authorization page for unauthenticated requests
         const authUrl = new URL(`${BASE_URI}/authorize`);
         authUrl.searchParams.set('response_type', 'code');
-        authUrl.searchParams.set('client_id', 'rzmx-client');
+        authUrl.searchParams.set('client_id', auth0Provider ? AUTH0_CLIENT_ID : 'rzmx-client');
         authUrl.searchParams.set('redirect_uri', `${BASE_URI}/callback`);
         authUrl.searchParams.set('state', 'mcp-auth');
+        if (auth0Provider) authUrl.searchParams.set('auth_provider', 'auth0');
         
-        logger.info('Redirecting to Rezoomex authorization', { authUrl: authUrl.toString() });
+        logger.info('Redirecting to authorization', { authUrl: authUrl.toString() });
         res.redirect(authUrl.toString());
         return;
     }
 
     const token = authHeader.substring(7);
     try {
-        const authInfo = await rezoomexAuthProvider.verifyAccessToken(token);
+        let authInfo;
+        
+        // Try Auth0 first if configured
+        if (auth0Provider) {
+            try {
+                authInfo = await auth0Provider.verifyAccessToken(token);
+                logger.info('Auth0 token verified successfully');
+            } catch (auth0Error) {
+                logger.warn('Auth0 token verification failed, trying Rezoomex', { error: auth0Error.message });
+                // Fall back to Rezoomex
+                authInfo = await rezoomexAuthProvider.verifyAccessToken(token);
+            }
+        } else {
+            // Use Rezoomex only
+            authInfo = await rezoomexAuthProvider.verifyAccessToken(token);
+        }
+        
         req.authInfo = authInfo;
         req.sessionContext = {
             userId: authInfo.extra?.userId || `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
@@ -714,13 +931,17 @@ const sseAuthMiddleware = async (req, res, next) => {
         
         next();
     } catch (error) {
-        logger.error('SSE auth failed', { error: error.message });
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.status(401);
-        res.write('data: {"error":"Invalid access token"}\n\n');
-        res.end();
+        logger.error('SSE authentication failed', { error: error.message });
+        
+        // Redirect to authorization on auth failure
+        const authUrl = new URL(`${BASE_URI}/authorize`);
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('client_id', auth0Provider ? AUTH0_CLIENT_ID : 'rzmx-client');
+        authUrl.searchParams.set('redirect_uri', `${BASE_URI}/callback`);
+        authUrl.searchParams.set('state', 'mcp-auth');
+        if (auth0Provider) authUrl.searchParams.set('auth_provider', 'auth0');
+        
+        res.redirect(authUrl.toString());
     }
 };
 
