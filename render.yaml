@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: 3000
       - key: BASE_URI
-        sync: false
+        value: https://rmx-mcp.onrender.com
       - key: REZOOMEX_BASE_URL
         value: https://awsapi-gateway.rezoomex.com
       - key: REZOOMEX_LOGIN_URL

@@ -37,7 +37,7 @@ const logger = createLogger({
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BASE_URI = process.env.BASE_URI || `http://localhost:${PORT}`;
+const BASE_URI = process.env.BASE_URI || (process.env.NODE_ENV === 'production' ? 'https://rmx-mcp.onrender.com' : `http://localhost:${PORT}`);
 const REZOOMEX_LOGIN_URL = process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/account/login';
 const REZOOMEX_BASE_URL = process.env.REZOOMEX_BASE_URL || 'https://awsapi-gateway.rezoomex.com';
 

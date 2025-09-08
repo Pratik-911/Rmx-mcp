@@ -1,7 +1,26 @@
 {
   "mcpServers": {
     "rzmx": {
+      "command": "node",
+      "args": ["/Users/pratik/Documents/Projects/Rezoomex/image-processing/rezoomex/mcp-server-rezoomex-oauth.js"],
+      "env": {
+        "PORT": "3000",
+        "BASE_URI": "http://localhost:3000",
+        "REZOOMEX_BASE_URL": "https://awsapi-gateway.rezoomex.com",
+        "REZOOMEX_LOGIN_URL": "https://workspace.rezoomex.com/account/login",
+        "API_TIMEOUT": "10000",
+        "USER_AGENT": "Rezoomex-MCP-Client/1.0",
+        "SESSION_TIMEOUT": "86400000",
+        "LOG_LEVEL": "info"
+      },
       "url": "http://localhost:3000/v1/sse"
+    },
+    "rzmx-production": {
+      "transport": {
+        "type": "sse",
+        "url": "https://rmx-mcp.onrender.com/v1/sse"
+      },
+      "description": "Production RZMX OAuth2 MCP Server on Render"
     }
   }
 }
