@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "rzmx": {
+      "url": "https://rmx-mcp.onrender.com/v1/sse",
+      "type": "sse"
+    },
+    "rzmx-local": {
+      "url": "http://localhost:3000/v1/sse",
+      "type": "sse"
+    }
+  }
+}

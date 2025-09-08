@@ -20,6 +20,8 @@ services:
         value: 300000
       - key: LOG_LEVEL
         value: info
+      - key: NODE_ENV
+        value: production
       - key: AUTH0_DOMAIN
         value: dev-oz8800aiegwm56oy.us.auth0.com
       - key: AUTH0_CLIENT_ID

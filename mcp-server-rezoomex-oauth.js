@@ -36,6 +36,14 @@ const logger = createLogger({
 });
 
 const app = express();
+
+// Configure trust proxy for production deployment (Render, Heroku, etc.)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+} else {
+    app.set('trust proxy', false);
+}
+
 const PORT = process.env.PORT || 3000;
 const BASE_URI = process.env.BASE_URI || (process.env.NODE_ENV === 'production' ? 'https://rmx-mcp.onrender.com' : `http://localhost:${PORT}`);
 const REZOOMEX_LOGIN_URL = process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/account/login';
