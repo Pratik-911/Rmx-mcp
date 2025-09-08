@@ -1,53 +1,125 @@
-# Rezoomex MCP Server (Node.js)
+# RZMX MCP Server
 
-A Node.js-based Server-Sent Events (SSE) MCP server for Rezoomex API integration with bearer token authentication.
+OAuth2-enabled Model Context Protocol (MCP) server for Rezoomex that provides seamless IDE integration with project data, user stories, personas, and project management information.
 
 ## Features
 
-- **SSE Support**: Real-time streaming responses for long-running operations
-- **Bearer Token Authentication**: Secure authentication using Rezoomex bearer tokens
-- **Comprehensive API Coverage**: All major Rezoomex API endpoints
-- **Session Management**: Multi-user session handling with automatic cleanup
-- **Proper Error Handling**: Detailed error messages and logging
-- **Rate Limiting**: Built-in protection against abuse
-- **Health Monitoring**: Health check endpoints and logging
+- **OAuth2 Authentication**: Seamless "connect button" experience with Windsurf and Cursor IDEs
+- **SSE Transport**: Real-time Server-Sent Events for MCP communication
+- **JSON-RPC Support**: Direct tool calls via HTTP POST endpoints
+- **Comprehensive Tools**: 26+ tools for project management, user stories, and persona analysis
+- **IDE Integration**: Native support for Windsurf and Cursor IDEs
 
 ## Quick Start
 
-### 1. Installation
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp .env.oauth.example .env.oauth
+   # Edit .env.oauth with your settings
+   ```
+
+3. **Start the server:**
+   ```bash
+   node mcp-server-rezoomex-oauth.js
+   ```
+
+4. **Configure your IDE:**
+   Add to Windsurf MCP config:
+   ```json
+   {
+     "mcpServers": {
+       "rzmx": {
+         "url": "http://localhost:3000/v1/sse"
+       }
+     }
+   }
+   ```
+
+## OAuth2 Flow
+
+The server provides OAuth2 endpoints for IDE integration:
+
+- `GET /authorize` - Authorization endpoint with login form
+- `POST /authenticate` - Credential authentication
+- `GET /callback` - OAuth2 callback handler
+- `POST /token` - Token exchange endpoint
+
+## MCP Endpoints
+
+- `GET /v1/sse` - SSE transport for real-time MCP communication
+- `POST /v1/sse` - JSON-RPC endpoint for direct tool calls
+
+## Available Tools
+
+### Core Project Tools
+- `list_user_stories` - List user stories for project and persona
+- `get_user_story` - Get specific user story details
+- `get_projects` - Get all accessible projects
+- `get_project_overview` - Comprehensive project information
+- `get_persona_profile` - Detailed persona analysis
+
+### Advanced Tools
+- `get_story_range` - Get multiple stories by range
+- `get_user_journey` - User journey mapping
+- `get_jobs_to_be_done` - JTBD analysis
+- `search_projects` - Project search functionality
+- `find_project_by_name` - Project discovery by name
+
+### User Management
+- `get_user_info` - Authenticated user profile
+- `check_nda_status` - NDA compliance status
+
+*And 15+ additional tools for comprehensive project management*
+
+## Environment Configuration
 
 ```bash
-cd /Users/pratik/Documents/Projects/Rezoomex/image-processing/rezoomex
-npm install
-```
-
-### 2. Configuration
-
-Copy the environment template:
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your configuration:
-```env
-PORT=3000
+# .env.oauth
 NODE_ENV=development
+PORT=3000
+BASE_URI=http://localhost:3000
 REZOOMEX_BASE_URL=https://awsapi-gateway.rezoomex.com
-# No default projects - all project_id and persona_id must be provided
+REZOOMEX_LOGIN_URL=https://workspace.rezoomex.com/account/login
+LOG_LEVEL=info
 ```
 
-### 3. Start the Server
+## Architecture
 
-```bash
-npm start
+```
+├── lib/
+│   ├── auth-manager.js     # Authentication management
+│   ├── mcp-tools.js        # 26+ tool definitions
+│   └── rezoomex-client.js  # Rezoomex API client
+├── views/
+│   ├── dashboard.html      # OAuth dashboard
+│   └── index.html          # Server info page
+├── mcp-server-rezoomex-oauth.js  # Main OAuth MCP server
+├── server.js               # Legacy HTTP server
+└── windsurf_mcp_config_oauth.json  # IDE configuration
 ```
 
-The server will be available at `http://localhost:3000`
+## Development
 
-## Authentication Flow
+The server supports both SSE transport and direct JSON-RPC calls, making it compatible with various MCP clients and IDEs.
 
-### Step 1: Get Login URL
-```bash
+### Adding Tools
+
+1. Add tool definition to `lib/mcp-tools.js`
+2. Implement logic in the tool's `callTool` method
+3. Tools are automatically available in both SSE and JSON-RPC endpoints
+
+## Deployment
+
+The server can be deployed to any Node.js hosting platform. See `DEPLOYMENT.md` for detailed deployment instructions.
+
+## License
+
+Proprietary to Rezoomex.
 curl http://localhost:3000/auth/login-url
 ```
 
@@ -106,82 +178,6 @@ DELETE /auth/session/:sessionId        # Clear session
 GET /mcp/tools                         # List available tools
 GET /mcp/execute/:toolName             # Execute tool via SSE
 POST /mcp/execute/:toolName            # Execute tool via POST
-```
-
-## Available MCP Tools
-
-| Tool Name | Description | Required Parameters |
-|-----------|-------------|--------------------|
-| `list_user_stories` | List all user stories with numbers for a project and persona | `project_id`, `persona_id` |
-| `get_story_range` | Get user stories in a range (e.g., stories 1-5) with all details | `project_id`, `persona_id`, `start_number`, `end_number` |
-| `get_single_story_details` | Get detailed information for a single user story | `project_id`, `persona_id` |
-| `get_project_overview` | Get comprehensive project overview | `project_id` |
-| `get_persona_profile` | Get detailed persona profile | `project_id`, `persona_id` |
-| `get_user_journey` | Get detailed user journey events | `project_id`, `persona_id` |
-| `get_jobs_to_be_done` | Get Jobs to be Done analysis | `project_id`, `persona_id` |
-| `get_user_info` | Get authenticated user profile information | None |
-| `get_project_environment` | Get project environment information including personas | `project_id` |
-| `check_nda_status` | Check NDA status for the authenticated user | None |
-| `get_product_info` | Get detailed product information for a project | `project_id` |
-
-### Name-Based Lookup Tools (User-Friendly)
-
-| Tool Name | Description | Required Parameters |
-|-----------|-------------|--------------------|
-| `list_projects` | List all available projects with their names and IDs | None |
-| `find_project_by_name` | Find a project by its name and get the project ID | `project_name` |
-| `find_persona_by_name` | Find a persona by name within a project and get the persona ID | `project_id`, `persona_name` |
-| `get_user_stories_by_name` | List user stories using project and persona names (more user-friendly) | `project_name`, `persona_name` |
-| `get_persona_by_name` | Get persona profile using project and persona names (more user-friendly) | `project_name`, `persona_name` |
-
-### Legacy Tools (Backward Compatibility)
-
-| Tool Name | Description | Required Parameters |
-|-----------|-------------|--------------------|
-| `mcp0_getUserInfo` | Legacy: Get authenticated user profile information | None |
-| `mcp0_fetchPersona` | Legacy: Get persona details by project and persona ID | `projectId`, `personaId` |
-| `mcp0_fetchElevatorPitch` | Legacy: Get project elevator pitch | `projectId` |
-| `mcp0_fetchVisionStatement` | Legacy: Get project vision statement | `projectId` |
-| `mcp0_fetchProductInfo` | Legacy: Get product information | `projectId` |
-| `mcp0_fetchProjectEnvironment` | Legacy: Get project environment information | `projectId` |
-| `mcp0_checkNdaStatus` | Legacy: Check NDA status for the authenticated user | None |
-
-## Usage Examples
-
-### Using SSE (Server-Sent Events)
-
-```javascript
-const eventSource = new EventSource(
-  'http://localhost:3000/mcp/execute/list_user_stories?project_id=39SQ&persona_id=39SQ-P-003',
-  {
-    headers: {
-      'X-Session-ID': 'your-session-id'
-    }
-  }
-);
-
-eventSource.addEventListener('progress', (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Progress:', data.message);
-});
-
-eventSource.addEventListener('result', (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Result:', data.result);
-});
-
-eventSource.addEventListener('complete', (event) => {
-  console.log('Operation completed');
-  eventSource.close();
-});
-
-eventSource.addEventListener('error', (event) => {
-  const data = JSON.parse(event.data);
-  console.error('Error:', data.message);
-});
-```
-
-### Using POST Requests
 
 ```bash
 # Using IDs (traditional way)

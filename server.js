@@ -147,16 +147,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Authentication endpoint - returns login URL
-app.get('/auth/login-url', (req, res) => {
-    const baseUrl = req.protocol + '://' + req.get('host');
-    const callbackUrl = `${baseUrl}/auth/callback`;
-    const loginUrl = `https://workspace.rezoomex.com/account/login?redirect_uri=${encodeURIComponent(callbackUrl)}`;
-    
-    res.json({ loginUrl, callbackUrl });
-});
-
-// Authentication endpoint - returns login URL
+// Authentication endpoint - returns login URL (OAuth2 flow only)
 app.get('/auth/login-url', (req, res) => {
     const loginUrl = process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/account/login';
     
@@ -164,158 +155,52 @@ app.get('/auth/login-url', (req, res) => {
     
     res.json({
         loginUrl,
-        instructions: 'Please login at the provided URL and extract the bearer token from the URL after successful authentication.',
-        tokenLocation: 'The bearer token will be in the URL as access_token parameter after login.'
+        instructions: 'Please use the OAuth2 flow via /authorize endpoint for secure authentication.',
+        note: 'Direct credential authentication has been deprecated in favor of OAuth2.'
     });
 });
 
-// Direct credential authentication endpoint
+// Legacy credential authentication endpoint (deprecated)
 app.post('/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password are required' });
-        }
-        
-        // Authenticate with Rezoomex API endpoint (same as working Python MCP)
-        const params = new URLSearchParams();
-        params.append('username', email);
-        params.append('password', password);
-        
-        const authResponse = await axios.post('https://awsapi-gateway.rezoomex.com/v1/users/auth0/token', params, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
-        
-        if (authResponse.data.access_token) {
-            const sessionId = uuidv4();
-            const client = await authManager.authenticateWithToken(authResponse.data.access_token, sessionId);
-            
-            if (!client) {
-                throw new Error('Failed to authenticate with received token');
-            }
-            
-            const userInfo = client.userInfo;
-            
-            logger.info('User authenticated via credentials', { 
-                sessionId, 
-                userEmail: userInfo?.email 
-            });
-            
-            res.json({
-                message: 'Authentication successful',
-                sessionId,
-                user: userInfo,
-                accessToken: authResponse.data.access_token
-            });
-        } else {
-            throw new Error('No access token received');
-        }
-    } catch (error) {
-        logger.error('Credential authentication failed', { error: error.message });
-        res.status(401).json({ 
-            error: 'Authentication failed: ' + (error.response?.data?.error_description || error.message)
-        });
-    }
+    logger.warn('Deprecated credential authentication endpoint accessed');
+    res.status(410).json({
+        error: 'DEPRECATED_ENDPOINT',
+        message: 'Direct credential authentication has been deprecated. Please use OAuth2 flow via /authorize endpoint.',
+        oauth2_endpoint: '/authorize',
+        documentation: 'See README.md for OAuth2 setup instructions'
+    });
 });
 
-// Bearer token authentication endpoint
+// Bearer token authentication endpoint (legacy support)
 app.post('/auth/token', async (req, res) => {
-    try {
-        const { bearerToken } = req.body;
-        
-        if (!bearerToken) {
-            return res.status(400).json({ error: 'Bearer token is required' });
-        }
-        
-        const sessionId = uuidv4();
-        const client = await authManager.authenticateWithToken(bearerToken, sessionId);
-        
-        if (!client) {
-            throw new Error('Invalid bearer token');
-        }
-        
-        const userInfo = client.userInfo;
-        
-        logger.info('User authenticated successfully', { 
-            sessionId, 
-            userEmail: userInfo?.email 
-        });
-        
-        res.json({
-            message: 'Authentication successful',
-            sessionId,
-            user: userInfo,
-            loginUrl: process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/login'
-        });
-    } catch (error) {
-        logger.error('Authentication failed', { error: error.message });
-        res.status(401).json({ 
-            error: 'Authentication failed: ' + error.message,
-            loginUrl: process.env.REZOOMEX_LOGIN_URL || 'https://workspace.rezoomex.com/login'
-        });
-    }
+    logger.warn('Legacy bearer token authentication endpoint accessed');
+    res.status(410).json({
+        error: 'DEPRECATED_ENDPOINT',
+        message: 'Direct bearer token authentication has been deprecated. Please use OAuth2 flow via /authorize endpoint.',
+        oauth2_endpoint: '/authorize',
+        migration_note: 'OAuth2 provides better security and session isolation'
+    });
 });
 
-// Get authentication status
+// Get authentication status (legacy)
 app.get('/auth/status', (req, res) => {
-    const sessionId = req.headers['x-session-id'] || req.cookies.sessionId;
-    
-    if (!sessionId || !authManager.isValidSession(sessionId)) {
-        return res.json({ authenticated: false });
-    }
-    
-    try {
-        const userInfo = authManager.getUserInfo(sessionId);
-        res.json({
-            authenticated: true,
-            sessionId,
-            user: userInfo
-        });
-    } catch (error) {
-        res.json({ authenticated: false });
-    }
+    logger.warn('Legacy authentication status endpoint accessed');
+    res.status(410).json({
+        error: 'DEPRECATED_ENDPOINT',
+        message: 'Legacy authentication status checking has been deprecated. OAuth2 handles session management automatically.',
+        oauth2_info: 'Authentication status is managed through OAuth2 tokens and SSE connections'
+    });
 });
 
-// Pickup temporary token (for OAuth flow)
+// Pickup temporary token (OAuth2 flow only)
 app.post('/auth/pickup-token', async (req, res) => {
-    try {
-        const { tempTokenId } = req.body;
-        
-        if (!tempTokenId) {
-            return res.status(400).json({ error: 'Temporary token ID is required' });
-        }
-        
-        const bearerToken = authManager.getTempToken(tempTokenId);
-        if (!bearerToken) {
-            return res.status(404).json({ error: 'Token not found or expired' });
-        }
-        
-        // Authenticate with the token
-        const sessionId = await authManager.authenticate(bearerToken);
-        const userInfo = await authManager.getUserInfo(sessionId);
-        
-        // Clean up temp token
-        authManager.removeTempToken(tempTokenId);
-        
-        logger.info('OAuth token pickup successful', { 
-            sessionId, 
-            userEmail: userInfo?.email 
-        });
-        
-        res.json({
-            success: true,
-            sessionId,
-            user: userInfo
-        });
-    } catch (error) {
-        logger.error('Token pickup failed', { error: error.message });
-        res.status(401).json({ 
-            error: 'Token pickup failed: ' + error.message
-        });
-    }
+    logger.warn('Legacy token pickup endpoint accessed - this should use OAuth2 /token endpoint');
+    res.status(410).json({
+        error: 'DEPRECATED_ENDPOINT',
+        message: 'Token pickup has been replaced by OAuth2 /token endpoint.',
+        oauth2_endpoint: '/token',
+        note: 'Use the OAuth2 authorization code flow instead'
+    });
 });
 
 // MCP Tools listing endpoint
